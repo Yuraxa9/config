@@ -30,7 +30,8 @@ class TestShellEmulator(unittest.TestCase):
         with open(config_path, 'w') as f:
             json.dump({"fs_archive": cls.archive_name}, f)
 
-        cls.emulator = ShellEmulator(config_path, archive_path)
+        # Инициализация эмулятора с одним аргументом
+        cls.emulator = ShellEmulator(config_path)
 
     @classmethod
     def tearDownClass(cls):
@@ -63,9 +64,10 @@ class TestShellEmulator(unittest.TestCase):
         self.emulator.current_dir = "/"
         self.emulator.cd("root")
         output = self.emulator.tree()
-        self.assertIn("text1.txt", output)  # Изменено
-        self.assertIn("text2.txt", output)  # Изменено
+        self.assertIn("text1.txt", output)
+        self.assertIn("text2.txt", output)
         self.assertIn("text3.txt", output)
+
     def test_uname(self):
         uname_output = self.emulator.uname()
         self.assertEqual(uname_output, platform.system())
