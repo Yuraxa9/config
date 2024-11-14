@@ -1,6 +1,5 @@
 import os
 import tarfile
-import io
 import json
 import logging
 
@@ -11,23 +10,21 @@ class ShellEmulator:
     def __init__(self, config_file, fs_archive):
         self.config_file = config_file
         self.fs_archive = fs_archive
-
-        # Инициализация виртуальной файловой системы из архива
         self.virtual_fs = self.load_fs()
+        self.current_dir = "root"  # Начальная директория - root
 
     def load_fs(self):
         # Загружаем архив в память
         try:
             with open(self.fs_archive, 'rb') as archive:
-                # Читаем архив в память
                 tar = tarfile.open(fileobj=archive, mode='r')
                 virtual_fs = {}
-                # Читаем содержимое архива
                 for member in tar.getmembers():
+                    path = member.name.strip("/")  # Удаляем ведущие слеши для унификации путей
                     if member.isdir():
-                        virtual_fs[member.name] = "directory"
+                        virtual_fs[path] = "directory"
                     elif member.isfile():
-                        virtual_fs[member.name] = "file"
+                        virtual_fs[path] = "file"
                 tar.close()
                 logging.info("Структура virtual_fs:")
                 for path, type_ in virtual_fs.items():
@@ -42,13 +39,17 @@ class ShellEmulator:
 
     def ls(self):
         # Возвращаем список файлов в текущей директории
-        return [path for path in self.virtual_fs.keys() if path != "root"]
+        return [
+            path.split('/')[-1]
+            for path in self.virtual_fs
+            if path.startswith(self.current_dir) and path != self.current_dir
+        ]
 
     def cd(self, directory):
         # Проверка существования директории
         if directory in self.virtual_fs and self.virtual_fs[directory] == "directory":
+            self.current_dir = directory
             logging.info(f"Перешли в директорию: {directory}")
-            return directory
         else:
             logging.error(f"Директория {directory} не найдена.")
             raise FileNotFoundError(f"Директория {directory} не найдена.")
@@ -64,30 +65,37 @@ class ShellEmulator:
     def uname(self):
         return "Shell Emulator"
 
-# Функция для загрузки конфигурации и запуска эмулятора
+# Функция для запуска эмулятора
 def run_emulator():
-    # Замените на ваши реальные пути
     config_file = "config.json"
-    archive_path = "root.tar"  # Или путь к вашему архиву
+    archive_path = "root.tar"
 
     try:
-        # Загружаем конфигурацию
         with open(config_file, 'r') as f:
             config = json.load(f)
-            # Инициализация эмулятора
             emulator = ShellEmulator(config_file, os.path.join(os.getcwd(), config['fs_archive']))
 
-        emulator.cd("root")  # Переходим в корневую директорию
-        files = emulator.ls()  # Получаем список файлов
-        print("Список файлов:")
-        for file in files:
-            print(file)
+        while True:
+            command = input("Введите команду: ")
+            if command == "ls":
+                print("\n".join(emulator.ls()))
+            elif command.startswith("cd "):
+                directory = command.split(" ", 1)[1]
+                emulator.cd(directory)
+            elif command == "exit":
+                print("Выход из эмулятора.")
+                break
+            elif command == "tree":
+                emulator.tree()
+            elif command == "uname":
+                print(emulator.uname())
+            else:
+                print("Неизвестная команда.")
 
     except FileNotFoundError:
         print(f"Ошибка: Файл конфигурации или архив не найден.")
     except Exception as e:
         print(f"Произошла ошибка: {e}")
-
 
 if __name__ == "__main__":
     run_emulator()
